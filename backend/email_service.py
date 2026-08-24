@@ -9,8 +9,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
+# Dynamically locate the base folder of the project
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # Mail spool folder path in the project workspace
-SPOOL_DIR = "C:/Users/vardh/.gemini/antigravity/scratch/ticket-booking-system/mail_spool"
+SPOOL_DIR = os.path.join(BASE_DIR, "mail_spool")
 EMAILS_DIR = os.path.join(SPOOL_DIR, "emails")
 QRCODES_DIR = os.path.join(SPOOL_DIR, "qrcodes")
 
@@ -18,7 +21,7 @@ os.makedirs(EMAILS_DIR, exist_ok=True)
 os.makedirs(QRCODES_DIR, exist_ok=True)
 
 # Load .env file manually if it exists to populate os.environ
-env_path = "C:/Users/vardh/.gemini/antigravity/scratch/ticket-booking-system/.env"
+env_path = os.path.join(BASE_DIR, ".env")
 if os.path.exists(env_path):
     with open(env_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -67,7 +70,7 @@ def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr
     try:
         url = "https://api.resend.com/emails"
         
-              # Force onboarding@resend.dev for Resend sandbox testing if SENDER_EMAIL is a public domain (like Gmail)
+        # Force onboarding@resend.dev for Resend sandbox testing if SENDER_EMAIL is a public domain (like Gmail)
         sender = "onboarding@resend.dev"
         if SENDER_EMAIL and not any(d in SENDER_EMAIL.lower() for d in ["@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com"]):
             sender = SENDER_EMAIL
@@ -106,7 +109,7 @@ def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr
             print(f"\n[RESEND API EMAIL SENT] To: {recipient_email}")
             return True
             
-        except urllib.error.HTTPError as he:
+    except urllib.error.HTTPError as he:
         try:
             err_msg = he.read().decode("utf-8")
         except Exception:
@@ -188,8 +191,8 @@ def send_booking_confirmation(
     qr_filepath = generate_qr_code(booking_ref)
     subject = f"Booking Confirmed: {event_title} [Ref: {booking_ref}]"
     
-    # Check if SMTP is configured to decide image source format
-    is_live = bool(SMTP_HOST)
+    # Check if SMTP or Resend API is configured to decide image source format
+    is_live = bool(SMTP_HOST) or bool(os.getenv("RESEND_API_KEY"))
     img_src = "cid:qrcode" if is_live else os.path.relpath(qr_filepath, EMAILS_DIR).replace("\\", "/")
     
     html_content = f"""<!DOCTYPE html>
