@@ -75,8 +75,10 @@ def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr
         if SENDER_EMAIL and not any(d in SENDER_EMAIL.lower() for d in ["@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com"]):
             sender = SENDER_EMAIL
             
+        from_sender = "onboarding@resend.dev" if sender == "onboarding@resend.dev" else f"Ticket Booking <{sender}>"
+        
         payload = {
-            "from": f"Ticket Booking <{sender}>",
+            "from": from_sender,
             "to": [recipient_email],
             "subject": subject,
             "html": html_body
