@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Configuration and Database
+.env
+booking.db
+booking.db-journal
+booking.db-shm
+booking.db-wal
+
+# Local test mail spool and submissions
+mail_spool/
+submission.zip
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
