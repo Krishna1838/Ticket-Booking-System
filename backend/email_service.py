@@ -1,6 +1,9 @@
 import os
 import qrcode
 import smtplib
+import base64
+import json
+import urllib.request
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -53,10 +56,65 @@ def generate_qr_code(booking_ref: str) -> str:
     img.save(qr_filepath)
     return qr_filepath
 
+def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr_filepath: str = None) -> bool:
+    """
+    Sends an email via Resend's HTTPS API (bypassing SMTP cloud blocks).
+    """
+    resend_key = os.getenv("RESEND_API_KEY")
+    if not resend_key:
+        return False
+        
+    try:
+        url = "https://api.resend.com/emails"
+        
+        # Build payload
+        payload = {
+            "from": SENDER_EMAIL or "onboarding@resend.dev",
+            "to": [recipient_email],
+            "subject": subject,
+            "html": html_body
+        }
+        
+        # If QR code is provided, encode it in base64 and attach it inline
+        if qr_filepath and os.path.exists(qr_filepath):
+            with open(qr_filepath, "rb") as f:
+                img_base64 = base64.b64encode(f.read()).decode("utf-8")
+            payload["attachments"] = [
+                {
+                    "filename": "qrcode.png",
+                    "content": img_base64,
+                    "id": "qrcode"
+                }
+            ]
+            
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        
+        with urllib.request.urlopen(req) as response:
+            response.read()
+            print(f"\n[RESEND API EMAIL SENT] To: {recipient_email}")
+            return True
+            
+    except Exception as e:
+        print(f"\n[RESEND API ERROR] Failed to send email via Resend API: {e}")
+        return False
+
 def send_email_via_smtp(recipient_email: str, subject: str, html_body: str, qr_filepath: str = None) -> bool:
     """
     Sends an email using standard SMTP. Returns True if successful, False otherwise.
+    If RESEND_API_KEY is set, routes the request through the Resend Web API instead.
     """
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key:
+        return send_email_via_resend(recipient_email, subject, html_body, qr_filepath)
+        
     if not SMTP_HOST:
         return False
         
