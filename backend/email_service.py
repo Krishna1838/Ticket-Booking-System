@@ -59,11 +59,74 @@ def generate_qr_code(booking_ref: str) -> str:
     img.save(qr_filepath)
     return qr_filepath
 
+def send_email_via_brevo(recipient_email: str, subject: str, html_body: str, qr_filepath: str = None) -> bool:
+    """
+    Sends an email via Brevo's (Sendinblue) HTTPS API (no single sender limits).
+    """
+    brevo_key = os.getenv("BREVO_API_KEY").strip().strip('"').strip("'") if os.getenv("BREVO_API_KEY") else None
+    if not brevo_key:
+        return False
+        
+    try:
+        url = "https://api.brevo.com/v3/smtp/email"
+        
+        # Build payload
+        payload = {
+            "sender": {
+                "name": "Ticket Booking",
+                "email": SENDER_EMAIL or "onboarding@brevo.com"
+            },
+            "to": [
+                {
+                    "email": recipient_email
+                }
+            ],
+            "subject": subject,
+            "htmlContent": html_body
+        }
+        
+        # If QR code is provided, encode it in base64 and attach it
+        if qr_filepath and os.path.exists(qr_filepath):
+            with open(qr_filepath, "rb") as f:
+                img_base64 = base64.b64encode(f.read()).decode("utf-8")
+            payload["attachment"] = [
+                {
+                    "content": img_base64,
+                    "name": "qrcode.png"
+                }
+            ]
+            
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "api-key": brevo_key,
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        
+        with urllib.request.urlopen(req) as response:
+            response.read()
+            print(f"\n[BREVO API EMAIL SENT] To: {recipient_email}")
+            return True
+            
+    except urllib.error.HTTPError as he:
+        try:
+            err_msg = he.read().decode("utf-8")
+        except Exception:
+            err_msg = "Could not read error response"
+        print(f"\n[BREVO API ERROR] HTTP Error {he.code}: {he.reason} - {err_msg}")
+        return False
+    except Exception as e:
+        print(f"\n[BREVO API ERROR] Failed to send email via Brevo API: {e}")
+        return False
+
 def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr_filepath: str = None) -> bool:
     """
     Sends an email via Resend's HTTPS API (bypassing SMTP cloud blocks).
     """
-    resend_key = os.getenv("RESEND_API_KEY")
+    resend_key = os.getenv("RESEND_API_KEY").strip().strip('"').strip("'") if os.getenv("RESEND_API_KEY") else None
     if not resend_key:
         return False
         
@@ -125,8 +188,12 @@ def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr
 def send_email_via_smtp(recipient_email: str, subject: str, html_body: str, qr_filepath: str = None) -> bool:
     """
     Sends an email using standard SMTP. Returns True if successful, False otherwise.
-    If RESEND_API_KEY is set, routes the request through the Resend Web API instead.
+    If BREVO_API_KEY or RESEND_API_KEY is set, routes the request through the respective Web API instead.
     """
+    brevo_key = os.getenv("BREVO_API_KEY")
+    if brevo_key:
+        return send_email_via_brevo(recipient_email, subject, html_body, qr_filepath)
+        
     resend_key = os.getenv("RESEND_API_KEY")
     if resend_key:
         return send_email_via_resend(recipient_email, subject, html_body, qr_filepath)
@@ -188,13 +255,13 @@ def send_booking_confirmation(
 ):
     """
     Sends a booking confirmation email with a generated QR code ticket.
-    Uses SMTP if credentials exist, otherwise falls back to saving locally as an HTML file.
+    Uses SMTP or Web APIs if configured, otherwise falls back to saving locally as an HTML file.
     """
     qr_filepath = generate_qr_code(booking_ref)
     subject = f"Booking Confirmed: {event_title} [Ref: {booking_ref}]"
     
-    # Check if SMTP or Resend API is configured to decide image source format
-    is_live = bool(SMTP_HOST) or bool(os.getenv("RESEND_API_KEY"))
+    # Check if SMTP or Resend/Brevo API is configured to decide image source format
+    is_live = bool(SMTP_HOST) or bool(os.getenv("RESEND_API_KEY")) or bool(os.getenv("BREVO_API_KEY"))
     img_src = "cid:qrcode" if is_live else os.path.relpath(qr_filepath, EMAILS_DIR).replace("\\", "/")
     
     html_content = f"""<!DOCTYPE html>
