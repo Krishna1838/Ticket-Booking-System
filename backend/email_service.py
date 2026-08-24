@@ -83,7 +83,7 @@ def send_email_via_smtp(recipient_email: str, subject: str, html_body: str, qr_f
                 msg.attach(msg_image)
                 
         # Send via SMTP
-        with smtplib.SMTP(SMTP_HOST, port) as server:
+        with smtplib.SMTP(SMTP_HOST, port,timeout=5) as server:
             server.starttls()
             if SMTP_USER and SMTP_PASSWORD:
                 server.login(SMTP_USER, SMTP_PASSWORD)
