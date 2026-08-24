@@ -106,6 +106,13 @@ def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr
             print(f"\n[RESEND API EMAIL SENT] To: {recipient_email}")
             return True
             
+        except urllib.error.HTTPError as he:
+        try:
+            err_msg = he.read().decode("utf-8")
+        except Exception:
+            err_msg = "Could not read error response"
+        print(f"\n[RESEND API ERROR] HTTP Error {he.code}: {he.reason} - {err_msg}")
+        return False
     except Exception as e:
         print(f"\n[RESEND API ERROR] Failed to send email via Resend API: {e}")
         return False
