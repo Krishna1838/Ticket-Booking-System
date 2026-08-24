@@ -1,5 +1,6 @@
 import uuid
 import json
+import threading
 from datetime import datetime, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -173,15 +174,12 @@ async def confirm_booking(db: Session, user_id: int, event_id: int, seat_ids: li
     # Send booking confirmation email asynchronously (logged/spooled)
     user = db.query(models.User).filter(models.User.id == user_id).first()
     seat_descriptions = [f"{es.seat.row_name}{es.seat.seat_number} ({es.seat.category})" for es in event_seats]
-    email_service.send_booking_confirmation(
-        recipient_email=user.email,
-        booking_ref=booking_ref,
-        event_title=event.title,
-        date=event.date,
-        time=event.time,
-        seats=seat_descriptions,
-        price=total_price
+     # Send email in a background thread to prevent SMTP latency from hanging the HTTP response
+    email_thread = threading.Thread(
+        target=email_service.send_booking_confirmation,
+        args=(user.email, booking_ref, event.title, event.date, event.time, seat_descriptions, total_price)
     )
+    email_thread.start()
     
     # Broadcast updates
     await broadcast_seat_update(event_id, db, seat_ids)
@@ -238,15 +236,12 @@ async def process_waitlist_assignment(db: Session, event_id: int, seat_id: int, 
         user = db.query(models.User).filter(models.User.id == next_waitlist.user_id).first()
         seat_desc = f"{event_seat.seat.row_name}{event_seat.seat.seat_number} ({seat_category})"
         
-        email_service.send_booking_confirmation(
-            recipient_email=user.email,
-            booking_ref=booking_ref,
-            event_title=event.title,
-            date=event.date,
-            time=event.time,
-            seats=[seat_desc],
-            price=price_paid
+        # Send email in a background thread to prevent SMTP latency from hanging the HTTP response
+        email_thread = threading.Thread(
+            target=email_service.send_booking_confirmation,
+            args=(user.email, booking_ref, event.title, event.date, event.time, [seat_desc], price_paid)
         )
+        email_thread.start()
         
         # Broadcast the seat update
         await broadcast_seat_update(event_id, db, [seat_id])
