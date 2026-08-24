@@ -99,7 +99,7 @@ class Booking(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
     seat_id = Column(Integer, ForeignKey("seats.id"), nullable=False)
-    booking_reference = Column(String, unique=True, index=True, nullable=False)
+    booking_reference = Column(String, index=True, nullable=False)
     price_paid = Column(Float, nullable=False)
     status = Column(String, default="confirmed")  # confirmed, cancelled
     created_at = Column(DateTime, default=datetime.utcnow)
