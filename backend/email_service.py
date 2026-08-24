@@ -67,9 +67,13 @@ def send_email_via_resend(recipient_email: str, subject: str, html_body: str, qr
     try:
         url = "https://api.resend.com/emails"
         
-        # Build payload
+              # Force onboarding@resend.dev for Resend sandbox testing if SENDER_EMAIL is a public domain (like Gmail)
+        sender = "onboarding@resend.dev"
+        if SENDER_EMAIL and not any(d in SENDER_EMAIL.lower() for d in ["@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com"]):
+            sender = SENDER_EMAIL
+            
         payload = {
-            "from": SENDER_EMAIL or "onboarding@resend.dev",
+            "from": f"Ticket Booking <{sender}>",
             "to": [recipient_email],
             "subject": subject,
             "html": html_body
