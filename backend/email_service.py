@@ -82,12 +82,18 @@ def send_email_via_smtp(recipient_email: str, subject: str, html_body: str, qr_f
                 msg_image.add_header("Content-ID", "<qrcode>")
                 msg.attach(msg_image)
                 
-        # Send via SMTP
-        with smtplib.SMTP(SMTP_HOST, port,timeout=5) as server:
-            server.starttls()
-            if SMTP_USER and SMTP_PASSWORD:
-                server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(sender, recipient_email, msg.as_string())
+        # Connect using SSL (port 465) or STARTTLS (port 587 / other ports)
+        if port == 465:
+            with smtplib.SMTP_SSL(SMTP_HOST, port, timeout=5) as server:
+                if SMTP_USER and SMTP_PASSWORD:
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                server.sendmail(sender, recipient_email, msg.as_string())
+        else:
+            with smtplib.SMTP(SMTP_HOST, port, timeout=5) as server:
+                server.starttls()
+                if SMTP_USER and SMTP_PASSWORD:
+                    server.login(SMTP_USER, SMTP_PASSWORD)
+                server.sendmail(sender, recipient_email, msg.as_string())
             
         print(f"\n[LIVE EMAIL SENT] To: {recipient_email}")
         print(f"Subject: {subject}\n")
